@@ -1,0 +1,264 @@
+﻿<br />
+<br />
+<h2>Map</h2>
+
+<div class="row">
+    <div class="col-md-1">
+        Longtitude
+    </div>
+    <div class="col-md-5">
+        <input type="text" id="txtLongitude" class="form-control" readonly />
+    </div>
+    <div class="col-md-1">
+        Latitude
+    </div>
+    <div class="col-md-5">
+        <input type="text" id="txtLatitude" class="form-control" readonly />
+    </div>
+</div>
+
+<br />
+<div class="row">
+    <div class="col-md-1">
+        System (Hide)
+    </div>
+    <div class="col-md-5">
+        <textarea id="areaSystem" rows="5" class="form-control" readonly></textarea>
+    </div>
+    <div class="col-md-1">
+        User
+    </div>
+    <div class="col-md-5">
+        <textarea id="areaUser" rows="5"  class="form-control"></textarea>
+    </div>
+</div>
+<br />
+<input id="pac-input" class="controls" type="text" placeholder="Enter address">
+<div id="map" style="width:1120px; height:500px"></div>
+
+<br /><br />
+
+<style>
+    /* Always set the map height explicitly to define the size of the div
+            * element that contains the map. */
+    #map {
+        height: 100%;
+    }
+    /* Optional: Makes the sample page fill the window. */
+    html, body {
+        height: 100%;
+        margin: 0;
+        padding: 0;
+    }
+
+    #description {
+        font-family: Roboto;
+        font-size: 15px;
+        font-weight: 300;
+    }
+
+    #infowindow-content .title {
+        font-weight: bold;
+    }
+
+    #infowindow-content {
+        display: none;
+    }
+
+    #map #infowindow-content {
+        display: inline;
+    }
+
+    .pac-card {
+        margin: 10px 10px 0 0;
+        border-radius: 2px 0 0 2px;
+        box-sizing: border-box;
+        -moz-box-sizing: border-box;
+        outline: none;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+        background-color: #fff;
+        font-family: Roboto;
+    }
+
+    #pac-container {
+        padding-bottom: 12px;
+        margin-right: 12px;
+    }
+
+    .pac-controls {
+        display: inline-block;
+        padding: 5px 11px;
+    }
+
+        .pac-controls label {
+            font-family: Roboto;
+            font-size: 13px;
+            font-weight: 300;
+        }
+
+    #pac-input {
+        background-color: #fff;
+        font-family: Roboto;
+        font-size: 15px;
+        font-weight: 300;
+        margin-left: 12px;
+        margin-top: 10px;
+        padding: 0 11px 0 13px;
+        text-overflow: ellipsis;
+        width: 400px;
+        height: 30px;
+    }
+
+        #pac-input:focus {
+            border-color: #4d90fe;
+        }
+
+    #title {
+        color: #fff;
+        background-color: #4d90fe;
+        font-size: 25px;
+        font-weight: 500;
+        padding: 6px 12px;
+    }
+
+    #target {
+        width: 345px;
+    }
+</style>
+@section Scripts{
+    <script>
+        function initAutocomplete() {
+            var map = new google.maps.Map(document.getElementById('map'), {
+                center: { lat: 3.157426, lng: 101.712010 },
+                zoom: 8,
+                gestureHandling: 'greedy',
+                mapTypeId: 'roadmap'
+            });
+
+            // Create the search box and link it to the UI element.
+            var input = document.getElementById('pac-input');
+            var searchBox = new google.maps.places.SearchBox(input);
+            map.controls[google.maps.ControlPosition.TOP_LEFT].push(input);
+
+            // Bias the SearchBox results towards current map's viewport.
+            map.addListener('bounds_changed', function () {
+                searchBox.setBounds(map.getBounds());
+            });
+
+            var markers = [];
+            // Listen for the event fired when the user selects a prediction and retrieve
+            // more details for that place.
+            searchBox.addListener('places_changed', function () {
+                var places = searchBox.getPlaces();
+
+                if (places.length == 0) {
+                    return;
+                }
+
+                // Clear out the old markers.
+                markers.forEach(function (marker) {
+                    marker.setMap(null);
+                });
+                markers = [];
+
+                // For each place, get the icon, name and location.
+                var bounds = new google.maps.LatLngBounds();
+                var stopLoop = false;
+
+                places.forEach(function (place) {
+                    if (!stopLoop) {
+                        if (!place.geometry) {
+                            console.log("Returned place contains no geometry");
+                            return;
+                        }
+
+                        // Create a marker for each place.
+                        addMarker(place.geometry.location, map);
+
+                        if (place.geometry.viewport) {
+                            // Only geocodes have viewport.
+                            bounds.union(place.geometry.viewport);
+                        } else {
+                            bounds.extend(place.geometry.location);
+                        }
+                    }
+
+                    stopLoop = true;
+                });
+                map.fitBounds(bounds);
+            });
+
+            //
+            // Code below for put the marker when user click on the map and display the info window on top the marker
+            //
+            var infowindow = new google.maps.InfoWindow();
+            var geocoder = new google.maps.Geocoder();
+
+            google.maps.event.addListener(map, "click", function (event) {
+                addMarker(event.latLng, map);
+            });
+
+            // Adds a marker to the map.
+            function addMarker(location, map) {
+                // Clear out the old markers.
+                markers.forEach(function (marker) {
+                    marker.setMap(null);
+                });
+                markers = [];
+
+                geocoder.geocode({
+                    'latLng': location
+                }, function (results, status) {
+                    if (status == google.maps.GeocoderStatus.OK) {
+                        if (results[0]) {
+                            var address = results[0].formatted_address;
+
+                            // Add the marker at the clicked location, and add the next-available label
+                            // from the array of alphabetical characters.
+                            var marker = new google.maps.Marker({
+                                position: location,
+                                label: '',
+                                map: map
+                            });
+
+                            var message = '';
+                            var latitude = location.lat().toFixed(6);
+                            var longitude = location.lng().toFixed(6);
+                            if (address && address != null && address != '') {
+                                message = "<b>" + address + "<br/> Lat: " + latitude + "<br/> Long: " + longitude + "</b>";
+                            }
+                            else {
+                                message = "<b>" + "Lat: " + latitude + "<br/> Long: " + longitude + "</b>";
+                            }
+
+                            infowindow.setContent(message);
+                            infowindow.open(map, marker);
+
+                            // Update textbox & textarea
+                            $('#txtLongitude').val(longitude);
+                            $('#txtLatitude').val(latitude);
+                            $('#areaSystem').val(address);
+                            $('#areaUser').val(address);
+
+                            markers.push(marker);
+                        }
+                    }
+                    else {
+                        // Update textbox & textarea
+                        $('#txtLongitude').val('');
+                        $('#txtLatitude').val('');
+                        $('#areaSystem').val('');
+                        $('#areaUser').val('');
+
+                        alert('Location query error');
+                    }
+                });
+
+
+            }
+        }
+
+    </script>
+
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBXgn6oMR_-ltZDQ0Q52RXauOdlSakELig&libraries=places&callback=initAutocomplete" async defer></script>
+}
